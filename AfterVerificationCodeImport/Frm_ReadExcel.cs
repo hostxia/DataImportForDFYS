@@ -16,13 +16,13 @@ using System.Data.OleDb;
 namespace AfterVerificationCodeImport
 {
     public partial class Frm_ReadExcel : Form
-    { 
-        private SqlConnection conn; 
+    {
+        private SqlConnection conn;
         private int OutFileID;
         private int InFileID;
-        private string connstr;
+        private DBConnection connstr;
 
-        public Frm_ReadExcel(string _connstr)
+        public Frm_ReadExcel(DBConnection _connstr)
         {
             connstr = _connstr;
             InitializeComponent();
@@ -33,10 +33,10 @@ namespace AfterVerificationCodeImport
         //读取发文和来文OID
         private void getType()
         {
-             conn.Open();
+            conn.Open();
             conn.ChangeDatabase(com_databasename.Text.Trim()); //重新指定数据库  
-            OutFileID = _dbHelper.GetbySql("select OID FROM dbo.XPObjectType WHERE TypeName LIKE 'DataEntities.Element.Files.OutFile'",com_databasename.Text, conn);
-            InFileID = _dbHelper.GetbySql("select OID FROM dbo.XPObjectType WHERE TypeName LIKE 'DataEntities.Element.Files.InFile'",com_databasename.Text, conn);
+            OutFileID = _dbHelper.GetbySql("select OID FROM dbo.XPObjectType WHERE TypeName LIKE 'DataEntities.Element.Files.OutFile'", com_databasename.Text, conn);
+            InFileID = _dbHelper.GetbySql("select OID FROM dbo.XPObjectType WHERE TypeName LIKE 'DataEntities.Element.Files.InFile'", com_databasename.Text, conn);
             conn.Close();
         }
         private void Frm_ReadExcel_Load(object sender, EventArgs e)
@@ -46,10 +46,14 @@ namespace AfterVerificationCodeImport
         }
         private void Init()
         {
-            conn = new SqlConnection(connstr); //SqlConnection实例化
-            MaximizeBox = false; //禁用最小化
-            MaximumSize = MinimumSize = Size; //固定当前大小
-            txt_filepath.ReadOnly = true;
+            for (int i = 0; i < xradioRegOnline.Properties.Items.Count; i++)
+            {
+                xradioRegOnline.Properties.Items[i].Description = i + ". " + xradioRegOnline.Properties.Items[i].Description;
+            }
+            conn = new SqlConnection(connstr.ConnectionString); //SqlConnection实例化
+            //MaximizeBox = false; //禁用最小化
+            //MaximumSize = MinimumSize = Size; //固定当前大小
+            txt_filepath.Properties.ReadOnly = true;
             //com_databasename.DropDownStyle = com_tablename.DropDownStyle = ComboBoxStyle.DropDownList; //下拉框只可选
 
             cbxSheet.DropDownStyle = cbxSheet.DropDownStyle = ComboBoxStyle.DropDownList; //下拉框只可选
@@ -77,19 +81,14 @@ namespace AfterVerificationCodeImport
 
         private void EventHand()
         {
-            bt_see.Click += new EventHandler(bt_see_Click);
+            txt_filepath.ButtonClick += Txt_filepath_ButtonClick;
             //bt_ok.Click += new EventHandler(bt_ok_Click);
             FormClosing += new FormClosingEventHandler(Frm_ReadExcel_FormClosing);
         }
 
         #region 选择Excel文件
 
-        /// <summary>
-        /// 选择Excel文件
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void bt_see_Click(object sender, EventArgs e)
+        private void Txt_filepath_ButtonClick(object sender, DevExpress.XtraEditors.Controls.ButtonPressedEventArgs e)
         {
             try
             {
@@ -112,6 +111,8 @@ namespace AfterVerificationCodeImport
             }
         }
 
+
+
         #endregion
         #region 窗体关闭
 
@@ -128,7 +129,7 @@ namespace AfterVerificationCodeImport
         #endregion
 
         #region 自定义方法
-           private string[] tablenames;
+        private string[] tablenames;
         private DataSet ds;
         /// <summary>
         /// 读取Excel
@@ -137,13 +138,13 @@ namespace AfterVerificationCodeImport
         /// <param name="index">页数(默认0:第一页)</param>
         private void ReadExcel(string filename, int index)
         {
-             var strConn = "Provider=Microsoft.Ace.OleDb.12.0;" + "data source=" + filename +
-                             ";Extended Properties='Excel 12.0;'"; //此連接可以操作.xls與.xlsx文件
+            var strConn = "Provider=Microsoft.Ace.OleDb.12.0;" + "data source=" + filename +
+                            ";Extended Properties='Excel 12.0;'"; //此連接可以操作.xls與.xlsx文件
             using (var conn = new OleDbConnection(strConn))
             {
                 conn.Open();
                 DataTable table = conn.GetOleDbSchemaTable(OleDbSchemaGuid.Tables, null);
-                 tablenames = new string[table.Rows.Count];
+                tablenames = new string[table.Rows.Count];
                 for (int i = 0; i < table.Rows.Count; i++) tablenames[i] = table.Rows[i][2].ToString(); //获取Excel的表名
                 if (tablenames.Length <= 0)
                 {
@@ -151,7 +152,7 @@ namespace AfterVerificationCodeImport
                     return;
                 }
                 using (OleDbCommand cmd = conn.CreateCommand())
-                {       
+                {
                     lb_tablename.Text = "表名:" + tablenames[index].Substring(0, tablenames[index].Length - 1);
                     cmd.CommandText = "select * from [" + tablenames[index] + "]";
                     ds = new DataSet();
@@ -172,7 +173,7 @@ namespace AfterVerificationCodeImport
             ReadExcel(txt_filepath.Text, cbxSheet.SelectedIndex);
         }
 
-        
+
         #region  解释
         //s_IOType I：来文 O：发文 T：其它文件 
         //s_ClientGov  C: 客户  O: 官方 
@@ -183,7 +184,7 @@ namespace AfterVerificationCodeImport
         //导数据
         private void bt_ok_Click(object sender, EventArgs e)
         {
-            Bizsolution.BasicFacility.Exceptions.ExceptionLog.LogTimer("============="+xradioRegOnline.EditValue+" Start =================");
+            Bizsolution.BasicFacility.Exceptions.ExceptionLog.LogTimer("=============" + xradioRegOnline.EditValue + " Start =================");
             getType();
             string mgr = string.Empty;
             sumCount = 0;
@@ -191,10 +192,20 @@ namespace AfterVerificationCodeImport
             var xfrmProcess = new ProBar();
             try
             {
-                conn = new SqlConnection(connstr.Replace("master",com_databasename.Text));
                 DateTime begin = DateTime.Now;
+                connstr.Database = com_databasename.Text;
+                connstr.ConnectionString = connstr.ConnectionString.Replace("master", com_databasename.Text);
+                conn = new SqlConnection(connstr.ConnectionString);
+
                 //Bizsolution.BasicFacility.Exceptions.ExceptionLog.LogTimer("开始时间:" + begin);
                 conn.Open();
+                if (!DBHelper.BackupDatabase(connstr, xradioRegOnline.SelectedIndex, conn))
+                {
+                    conn.Close();
+                    Application.DoEvents();
+                    MessageBox.Show("备份数据库失败！");
+                    return;
+                }
                 conn.ChangeDatabase(com_databasename.Text.Trim()); //重新指定数据库 
                 var table = (DataTable)dgv_show.DataSource; //获取要Copy的数据源
 
@@ -245,7 +256,7 @@ namespace AfterVerificationCodeImport
                             }
                             else if (_selectValue.Contains("财务信息"))
                             {
-                                resultNum = _dealingClientData.AddBill(table.Rows[i],i,"",com_databasename.Text, conn);
+                                resultNum = _dealingClientData.AddBill(table.Rows[i], i, "", com_databasename.Text, conn);
                             }
                             if (resultNum == 0)
                             {
@@ -298,7 +309,7 @@ namespace AfterVerificationCodeImport
                             }
                             else if (_selectValue.Contains("财务信息"))
                             {
-                                resultNum = _dealingApplicant.AddAppBill(table.Rows[i],i,"", com_databasename.Text, conn);
+                                resultNum = _dealingApplicant.AddAppBill(table.Rows[i], i, "", com_databasename.Text, conn);
                             }
                             if (resultNum == 0)
                             {
@@ -321,8 +332,8 @@ namespace AfterVerificationCodeImport
                         xfrmProcess.progressBarControl.Position = sumCount;
                         xfrmProcess.lbSuccess.Text = sumCount.ToString();
                         xfrmProcess.Refresh();
-                        
-                        int resultNum = _dealingApplicant.UpdateTotalCommissionNumber(table.Rows[i], i,com_databasename.Text, conn);
+
+                        int resultNum = _dealingApplicant.UpdateTotalCommissionNumber(table.Rows[i], i, com_databasename.Text, conn);
                         if (resultNum == 0)
                         {
                             lostNum++;
@@ -345,7 +356,7 @@ namespace AfterVerificationCodeImport
                             xfrmProcess.progressBarControl.Position = sumCount;
                             xfrmProcess.lbSuccess.Text = sumCount.ToString();
                             xfrmProcess.Refresh();
-                            int resultNum = _dealingAgency.AddAgencyContact(newtableRow[i], i,com_databasename.Text,conn);//
+                            int resultNum = _dealingAgency.AddAgencyContact(newtableRow[i], i, com_databasename.Text, conn);//
                             if (resultNum == 0)
                             {
                                 lostNum++;
@@ -364,15 +375,15 @@ namespace AfterVerificationCodeImport
                             int resultNum = 0;
                             if (_selectValue.Contains("基本信息"))
                             {
-                                resultNum = _dealingAgency.InsertTCstmrCoopAgency(table.Rows[i], i,com_databasename.Text, conn);
+                                resultNum = _dealingAgency.InsertTCstmrCoopAgency(table.Rows[i], i, com_databasename.Text, conn);
                             }
                             else if (_selectValue.Contains("地址"))
                             {
-                                resultNum = _dealingAgency.AddAgencyAddress(table.Rows[i], i,com_databasename.Text, conn);
+                                resultNum = _dealingAgency.AddAgencyAddress(table.Rows[i], i, com_databasename.Text, conn);
                             }
                             else if (_selectValue.Contains("财务信息"))
                             {
-                                resultNum = _dealingAgency.AddAgencyBill(table.Rows[i],i,com_databasename.Text,conn);
+                                resultNum = _dealingAgency.AddAgencyBill(table.Rows[i], i, com_databasename.Text, conn);
                             }
                             if (resultNum == 0)
                             {
@@ -394,7 +405,7 @@ namespace AfterVerificationCodeImport
                         xfrmProcess.progressBarControl.Position = sumCount;
                         xfrmProcess.lbSuccess.Text = sumCount.ToString();
                         xfrmProcess.Refresh();
-                        int ResultNum = _dealingthreeData.TCaseApplicant(i, table.Rows[i],com_databasename.Text, conn);
+                        int ResultNum = _dealingthreeData.TCaseApplicant(i, table.Rows[i], com_databasename.Text, conn);
                         if (ResultNum == 0)
                         {
                             lostNum++;
@@ -573,7 +584,7 @@ namespace AfterVerificationCodeImport
                         xfrmProcess.progressBarControl.Position = sumCount;
                         xfrmProcess.lbSuccess.Text = sumCount.ToString();
                         xfrmProcess.Refresh();
-                        int Result = _dealingCasePantent.HongKang(i, table.Rows[i], OutFileID,com_databasename.Text, conn);
+                        int Result = _dealingCasePantent.HongKang(i, table.Rows[i], OutFileID, com_databasename.Text, conn);
                         if (Result == 0)
                         {
                             lostNum++;
@@ -654,7 +665,7 @@ namespace AfterVerificationCodeImport
                         xfrmProcess.progressBarControl.Position = sumCount;
                         xfrmProcess.lbSuccess.Text = sumCount.ToString();
                         xfrmProcess.Refresh();
-                        int RsultNum = _dealingCaseMemo.Case_Memo(i, table.Rows[i], OutFileID,com_databasename.Text, conn);
+                        int RsultNum = _dealingCaseMemo.Case_Memo(i, table.Rows[i], OutFileID, com_databasename.Text, conn);
                         if (RsultNum == 0)
                         {
                             lostNum++;
@@ -711,7 +722,7 @@ namespace AfterVerificationCodeImport
                         xfrmProcess.progressBarControl.Position = sumCount;
                         xfrmProcess.lbSuccess.Text = sumCount.ToString();
                         xfrmProcess.Refresh();
-                        int ResultNum = _dealingTask.ImportTask(i, table.Rows[i],com_databasename.Text, conn);
+                        int ResultNum = _dealingTask.ImportTask(i, table.Rows[i], com_databasename.Text, conn);
                         if (ResultNum == 0)
                         {
                             lostNum++;
@@ -926,7 +937,7 @@ namespace AfterVerificationCodeImport
                         xfrmProcess.lbSuccess.Text = sumCount.ToString();
                         xfrmProcess.Refresh();
 
-                        int resultNum = _dealingClientandCase.InsertDemand(table.Rows[i], i,com_databasename.Text, conn);//增加客户、申请人、客户-申请人要求
+                        int resultNum = _dealingClientandCase.InsertDemand(table.Rows[i], i, com_databasename.Text, conn);//增加客户、申请人、客户-申请人要求
                         _dealingClientandCase.InsertCaseDemand(table.Rows[i], com_databasename.Text, conn); //拷贝案子要求
                         if (resultNum == 0)
                         {
@@ -1318,7 +1329,7 @@ AND dbo.TPCase_LawInfo.s_PCTAppNo = '{0}'", sAppNo), conn);
         {
             int NUMS =
                 _dbHelper.GetbySql("SELECT COUNT(*) AS SUM FROM dbo.TCase_CaseRelative where n_CaseIDA=" + HKNum +
-                           " and n_CaseIDB=" + nCaseID + " and n_CodeRelativeID=" + n_ID,com_databasename.Text, conn);
+                           " and n_CaseIDB=" + nCaseID + " and n_CodeRelativeID=" + n_ID, com_databasename.Text, conn);
             if (!string.IsNullOrEmpty(type)) //同族
             {
                 NUMS =
@@ -1738,14 +1749,14 @@ FROM PCTCase INNER JOIN PCTNCase ON PCTNCase.s_PCTAppNo = PCTCase.s_PCTAppNo";
                     string value = string.Empty;
                     for (int j = 0; j < newtable.Rows.Count; j++)
                     {
-                        value += newtable.Rows[j]["s_Name"] + ":" + newtable.Rows[j]["s_PayFeePerson"]+";";
+                        value += newtable.Rows[j]["s_Name"] + ":" + newtable.Rows[j]["s_PayFeePerson"] + ";";
                     }
                     value = value.TrimEnd(';');
                     if (pList.ContainsKey(nCaseID) == false && !string.IsNullOrEmpty(value))
                     {
                         pList.Add(nCaseID, value);
-                    } 
-                } 
+                    }
+                }
             }
             string Sql = "";
             foreach (var dic in pList)
@@ -1780,13 +1791,13 @@ FROM PCTCase INNER JOIN PCTNCase ON PCTNCase.s_PCTAppNo = PCTCase.s_PCTAppNo";
             Bizsolution.BasicFacility.Exceptions.ExceptionLog.LogTimer("=============更新申请人官方收据抬头 End =================");
         }
 
-        public static void DicSample1(string nCaseID, string value,Dictionary<String, String> pList)
+        public static void DicSample1(string nCaseID, string value, Dictionary<String, String> pList)
         {
 
-         
+
             try
             {
-              
+
             }
             catch (System.Exception e)
             {
@@ -1796,5 +1807,6 @@ FROM PCTCase INNER JOIN PCTNCase ON PCTNCase.s_PCTAppNo = PCTCase.s_PCTAppNo";
         #endregion
 
         #endregion
+
     }
 }

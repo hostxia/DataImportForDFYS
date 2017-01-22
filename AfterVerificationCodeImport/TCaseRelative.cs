@@ -32,10 +32,10 @@ namespace AfterVerificationCodeImport
                     }
                 }
             }
-            else
-            {
-                _dbHelper.InsertLog(HKNum, caseID.ToString(), rowid, TabName, TabName + rowid, "未查到优先权号：无法建立优先权关系",No, commDB, _connection);
-            }
+            //else
+            //{
+            //    _dbHelper.InsertLog(HKNum, caseID.ToString(), rowid, TabName, TabName + rowid, "未查到优先权号：无法建立优先权关系",No, commDB, _connection);
+            //}
         }
     }
 }

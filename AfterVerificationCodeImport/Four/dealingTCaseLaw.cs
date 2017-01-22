@@ -59,10 +59,10 @@ namespace AfterVerificationCodeImport.Four
                     sClientGov = "C";
                     strSql = " SELECT n_CoopAgencyToID  FROM dbo.TCase_Base WHERE n_CaseID=" + hkNum;
                     nAgencyID = _dbHelper.GetbySql(strSql, commDB, _connection);
-                    if (nAgencyID <= 0)
-                    {
-                        _dbHelper.InsertLog(hkNum, sNo, rowid, "国外-法律信息及日志表", "国外-法律信息及日志表-" + rowid, "项目类型：我方给外代理文，未查到案件代理机构", "", commDB, _connection);
-                    }
+                    //if (nAgencyID <= 0)
+                    //{
+                    //    _dbHelper.InsertLog(hkNum, sNo, rowid, "国外-法律信息及日志表", "国外-法律信息及日志表-" + rowid, "项目类型：我方给外代理文，未查到案件代理机构", "", commDB, _connection);
+                    //}
                 }
                 string sClientType = "";
                 string sNote = "";

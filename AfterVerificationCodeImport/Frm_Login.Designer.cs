@@ -67,7 +67,7 @@
             this.txt_Pwd.Size = new System.Drawing.Size(133, 21);
             this.txt_Pwd.TabIndex = 7;
             this.txt_Pwd.Tag = "BizSolution2IP#";
-            this.txt_Pwd.Text = "123456";
+            this.txt_Pwd.Text = "qwer1234!";
             // 
             // txt_Uid
             // 
@@ -83,7 +83,7 @@
             this.txt_Server.Name = "txt_Server";
             this.txt_Server.Size = new System.Drawing.Size(133, 21);
             this.txt_Server.TabIndex = 4;
-            this.txt_Server.Text = "CHENZHIWEN\\SQLEXPRESS";
+            this.txt_Server.Text = "192.168.0.239";
             // 
             // lb_Pwd
             // 
